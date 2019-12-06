@@ -148,7 +148,7 @@ router.get('/getTopicDetail/:topicCode', function (req, res, next) {
     if (err) {
       throw err;
     }
-    var sql = "SELECT * FROM topic,topicitem WHERE topic.topicCode = topicitem.topicCode AND topic.topicCode = ?";
+    var sql = "SELECT * FROM topic,topicitem WHERE topic.topicCode = topicitem.topicCode AND topic.topicCode = ? order by topicItemCode asc";
     conn.query(sql, [topicCode], (err, row) => {
       conn.release();
       if (err) {
@@ -741,43 +741,72 @@ function getTest(req, res) {
                 console.log(e.topicItemCode)
                 var getUpdate = `update topicItem set topicItemState = '0' `
                 var selectWriting = "select * from writing"
-                var picMax = `SELECT *, count(*) as pickCount from writingpick, writing, topicitem where writingpick.topicItemCode=writing.topicItemCode AND writing.topicItemCode=topicItem.topicItemCode AND topicitem.topicItemCode = ? group by writingpick.topicItemCode, writingpick.topicItemCode ORDER BY pickCount DESC`
-                conn.query(picMax, [e.topicItemCode], (err, pickrow) => {
-                  console.log(pickrow)
-                  console.log(e.topicItemCode)
-                  console.log(pickrow[0].writingContents)
-                  var updateWriting = `update topicitem set writingItem = '${pickrow[0].writingContents}', topicItemState='0' WHERE topicitemCode='${pickrow[0].topicItemCode}'`
-                  conn.query(updateWriting, (err, writingrows) => {
-                    if (err) { console.log(err); }
-                    else {
-                      console.log(date_next);
-                      var update = `update topicitem set topicItemState='1' where topicItemDate='${date_next}'`;
-                      conn.query(update, (err, updateRow) => {
-                        console.log("~~~~~~~~~~~~~~~~~~~~~~~~`")
-                      })
-                    }
-                    var sql = `SELECT * FROM topicItem WHERE topicItemState = 1 AND topicCode = '${row[0].topicCode}'`
-                      conn.query(sql, (err, result) => {
-                        console.log("o1");
-                        if(err) {console.log(err)}
-                        else{
-                          if(result.length === 0){
-                            console.log("o2");
-                            console.log(row[0].topicCode);
-                            var sql2 = `UPDATE topic SET topicCompletionState = 1 WHERE topicCode = '${row[0].topicCode}'`
-                            conn.query(sql2, (err, result) => {
-                            if(err){console.log(err)}
-                            else {
-                                console.log("완결!!");
-                            }
-                          })
-                        }
+                var picMax = `SELECT topic.topicCode, topic.topicCompletionState, topicItem.topicItemCode, topicitem.topicItemState, topicitem.topicItemDate, topicitem.topicItemName, writing.userId, writing.writingContents, writing.topicItemCode, writingpick.topicItemCode from topic, topicitem, writing, writingpick where topic.topicCode=topicitem.topicCode AND topicitem.topicItemCode=writing.topicItemCode AND topicItem.topicItemCode=writingpick.topicItemCode AND topicitem.topicItemCode=? GROUP BY writing.userId HAVING writing.userId=(select MAX(userId) from writingpick where topicItemCode=?)`
+                conn.query(picMax, [e.topicItemCode, e.topicItemCode], (err, pickrow) => {
+                  if (pickrow.length === 0) { 
+                    var sql = `update topicItem set topicItemState = '0' WHERE topicCode = '${row[0].topicCode}'` 
+                    conn.query(sql, (err, result) => {
+                      if(err) {throw err}
+                      else{
+                        console.log("성공");
                       }
                     })
-                    // res.send(200, {
-                    //   result: 1,
-                    // })
-                  })
+                  }
+                  else {
+                    console.log(pickrow)
+                    console.log(e.topicItemCode)
+                    //console.log(pickrow[0].writingContents)
+                    var updateWriting = `update topicitem set writingItem = '${pickrow[0].writingContents}', topicItemState='0' WHERE topicitemCode='${pickrow[0].topicItemCode}'`
+                    conn.query(updateWriting, (err, writingrows) => {
+                      if (err) { console.log("hello world"); }
+                      else {
+                        console.log(date_next);
+                        var update = `update topicitem set topicItemState='1' where topicItemDate='${date_next}'`;
+                        conn.query(update, (err, updateRow) => {
+                          console.log("~~~~~~~~~~~~~~~~~~~~~~~~`")
+                        })
+                      }
+                      // res.send(200, {
+                      //   result: 1,
+                      // })
+                      var sql = `SELECT * FROM topicItem WHERE topicItemState = 1 AND topicCode = '${row[0].topicCode}'`
+                        conn.query(sql, (err, result) => {
+                          console.log("o1");
+                          if(err) {console.log(err)}
+                          else{
+                            if(result.length === 0){
+                              console.log("o2");
+                              console.log(row[0].topicCode);
+                              var sql2 = `UPDATE topic SET topicCompletionState = 1 WHERE topicCode = '${row[0].topicCode}'`
+                              conn.query(sql2, (err, result) => {
+                              if(err){console.log(err)}
+                              else {
+                                  console.log("완결!!");
+                              }
+                            })
+                          }
+                        }
+                      })
+                    })
+                  }
+                  var sql = `SELECT * FROM topicItem WHERE topicItemState = 1 AND topicCode = '${row[0].topicCode}'`
+                        conn.query(sql, (err, result) => {
+                          console.log("o1");
+                          if(err) {console.log(err)}
+                          else{
+                            if(result.length === 0){
+                              console.log("o2");
+                              console.log(row[0].topicCode);
+                              var sql2 = `UPDATE topic SET topicCompletionState = 1 WHERE topicCode = '${row[0].topicCode}'`
+                              conn.query(sql2, (err, result) => {
+                              if(err){console.log(err)}
+                              else {
+                                  console.log("완결!!");
+                              }
+                            })
+                          }
+                        }
+                      })
                 }
                 )
               })
@@ -828,5 +857,44 @@ router.get('/getCompletionTopicDetail/:topicCode', function (req, res) {
       }
   });
 });
+
+// 추천 주제
+// router.get('/topTopic', function (req, res) {
+//   pool.getConnection((err, conn) => {
+//       if (err) { console.log(err); }
+//       else {
+//           var topTopic = "SELECT * FROM topic WHERE topicCompletionState = 0 limit 3"
+//           conn.query(topTopic, (err, result) => {
+//               if (err) { console.log(err); }
+//               else {
+//                   if (result.length === 0) { res.send({ result: false }); }
+//                   else {
+//                       res.send({ result: result });
+//                   }
+//               }
+//           })
+//       }
+//   });
+// });
+
+//top3 작가
+router.get('/topWriter', function (req, res) {
+  pool.getConnection((err, conn) => {
+      if (err) { console.log(err); }
+      else {
+          var writer = "select * from writing group by userId limit 3"
+          conn.query(writer, (err, result) => {
+              if (err) { console.log(err); }
+              else {
+                  if (result.length === 0) { res.send({ result: false }); }
+                  else {
+                      res.send(result);
+                  }
+              }
+          })
+      }
+  });
+});
+
 
 module.exports = router;
